@@ -10,14 +10,11 @@ import Foundation
 
 public class AccessTokenProvider: AccessTokenProviderProtocol {
     
+    public var accessToken: String? { return AccessTokenStorage.accessToken }
+    public var refreshToken: String? { return AccessTokenStorage.refreshToken }
+    
     public private(set) var accessTokenType: AccessTokenType
     public private(set) var tokenRefresher: AccessTokenRefresherProtocol?
-    
-    private let accessTokenStorage = UserDefaultsProvider<String>(key: TokenStorageKeys.bearerTokenStorage.accessTokenKey)
-    public var accessToken: String? { return accessTokenStorage.value }
-    
-    private let refreshTokenStorage = UserDefaultsProvider<String>(key: TokenStorageKeys.bearerTokenStorage.refreshTokenKey)
-    public var refreshToken: String? { return refreshTokenStorage.value }
     
     public private(set) var refreshing: Bool = false
     
@@ -27,7 +24,7 @@ public class AccessTokenProvider: AccessTokenProviderProtocol {
     }
     
     public func requestNewToken(onCompleted: @escaping (Bool) -> Void) {
-        guard let refreshToken = self.refreshTokenStorage.value else {
+        guard let refreshToken = AccessTokenStorage.refreshToken else {
             onCompleted(false)
             return
         }
@@ -38,8 +35,8 @@ public class AccessTokenProvider: AccessTokenProviderProtocol {
         }
         tokenRefresher.refreshAccessToken(refreshToken, onCompleted: { tokenPair in
             if let tokenPair = tokenPair {
-                self.accessTokenStorage.value = tokenPair.accessToken
-                self.refreshTokenStorage.value = tokenPair.refreshToken
+                AccessTokenStorage.accessToken = tokenPair.accessToken
+                AccessTokenStorage.refreshToken = tokenPair.refreshToken
             }
             self.refreshing = false
             onCompleted(tokenPair != nil)
