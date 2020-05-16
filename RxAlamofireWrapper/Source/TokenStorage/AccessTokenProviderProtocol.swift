@@ -13,7 +13,7 @@ public typealias TokenRequestingCompletion = (Bool) -> Void
 public protocol AccessTokenProviderProtocol {
     
     var accessTokenType: AccessTokenType { get }
-    var tokenRefresher: AccessTokenRefresherProtocol { get }
+    var tokenRefresher: AccessTokenRefresherProtocol? { get }
 
     var accessToken: String? { get }
     var refreshToken: String? { get }

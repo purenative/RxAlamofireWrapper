@@ -11,7 +11,7 @@ import Foundation
 public class AccessTokenProvider: AccessTokenProviderProtocol {
     
     public private(set) var accessTokenType: AccessTokenType
-    public private(set) var tokenRefresher: AccessTokenRefresherProtocol
+    public private(set) var tokenRefresher: AccessTokenRefresherProtocol?
     
     private let accessTokenStorage = UserDefaultsProvider<String>(key: TokenStorageKeys.bearerTokenStorage.accessTokenKey)
     public var accessToken: String? { return accessTokenStorage.value }
@@ -21,7 +21,7 @@ public class AccessTokenProvider: AccessTokenProviderProtocol {
     
     public private(set) var refreshing: Bool = false
     
-    public init(accessTokenType: AccessTokenType, tokenRefresher: AccessTokenRefresherProtocol) {
+    public init(accessTokenType: AccessTokenType, tokenRefresher: AccessTokenRefresherProtocol? = nil) {
         self.accessTokenType = accessTokenType
         self.tokenRefresher = tokenRefresher
     }
@@ -32,6 +32,10 @@ public class AccessTokenProvider: AccessTokenProviderProtocol {
             return
         }
         refreshing = true
+        guard let tokenRefresher = self.tokenRefresher else {
+            onCompleted(true)
+            return
+        }
         tokenRefresher.refreshAccessToken(refreshToken, onCompleted: { tokenPair in
             if let tokenPair = tokenPair {
                 self.accessTokenStorage.value = tokenPair.accessToken
