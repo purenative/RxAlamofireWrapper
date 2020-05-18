@@ -25,13 +25,14 @@ public class AlamofireWrapper {
     }
     
     @discardableResult
-    public func dataRequest(_ desination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, onSuccess: @escaping (Data) -> Void, onError: @escaping (Error) -> Void) -> DataRequest {
+    public func dataRequest(_ desination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onError: @escaping (Error) -> Void) -> DataRequest {
         
         let dataRequest = createDataRequest(desination,
                                             method: method,
                                             json: json,
                                             queryParameters: queryParameters,
-                                            basicAuth: basicAuthInfo)
+                                            basicAuth: basicAuthInfo,
+                                            headers: headers)
         
         dataRequest.responseData(completionHandler: { dataResponse in
             switch dataResponse.result {
@@ -44,12 +45,13 @@ public class AlamofireWrapper {
     }
     
     @discardableResult
-    public func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, onSuccess: @escaping (Data) -> Void, onProgressChanged: @escaping (Double) -> Void, onError: @escaping (Error) -> Void) -> UploadRequest {
+    public func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onProgressChanged: @escaping (Double) -> Void, onError: @escaping (Error) -> Void) -> UploadRequest {
         
         let uploadRequest = createUploadRequest(destination,
                                                 method: method,
                                                 formData: formData,
-                                                basicAuth: basicAuthInfo)
+                                                basicAuth: basicAuthInfo,
+                                                headers: headers)
         
         uploadRequest.uploadProgress(closure: { progress in
             onProgressChanged(progress.fractionCompleted)
@@ -69,7 +71,7 @@ public class AlamofireWrapper {
 
 fileprivate extension AlamofireWrapper {
     
-    func createDataRequest(_ destination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil) -> DataRequest {
+    func createDataRequest(_ destination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> DataRequest {
         let url = try! destination.asURL()
         var reqeust = try! URLRequest(url: url, method: method)
         
@@ -81,15 +83,23 @@ fileprivate extension AlamofireWrapper {
             reqeust = try! URLEncoding.queryString.encode(reqeust, with: queryParameters)
         }
         
+        for (key, value) in headers {
+            reqeust.addValue(value, forHTTPHeaderField: key)
+        }
+        
         if let basicAuthInfo = basicAuthInfo {
             return session.request(reqeust).authenticate(username: basicAuthInfo.username, password: basicAuthInfo.password)
         }
         return session.request(reqeust)
     }
     
-    func createUploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil) -> UploadRequest {
+    func createUploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> UploadRequest {
         let url = try! destination.asURL()
-        let reqeust = try! URLRequest(url: url, method: method)
+        var reqeust = try! URLRequest(url: url, method: method)
+        
+        for (key, value) in headers {
+            reqeust.addValue(value, forHTTPHeaderField: key)
+        }
         
         if let basicAuthInfo = basicAuthInfo {
             return session.upload(multipartFormData: formData, with: reqeust).authenticate(username: basicAuthInfo.username, password: basicAuthInfo.password)
@@ -100,12 +110,13 @@ fileprivate extension AlamofireWrapper {
 }
 
 public extension AlamofireWrapper {
-    func dataRequest(_ desination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil) -> Single<Data> {
+    func dataRequest(_ desination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> Single<Data> {
         return Single.create(subscribe: { observer in
             let dataReqeust = self.dataRequest(desination, method:
                 method, json: json,
                         queryParameters: queryParameters,
                         basicAuth: basicAuthInfo,
+                        headers: headers,
                         onSuccess: { observer(.success($0)) },
                         onError: { observer(.error($0)) })
             
@@ -115,9 +126,10 @@ public extension AlamofireWrapper {
         })
     }
     
-    func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil) -> Observable<UploadingState> {
+    func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> Observable<UploadingState> {
         return Observable.create({ observer in
-            let uploadReqeust = self.uploadRequest(destination, method: method, formData: formData, basicAuth: basicAuthInfo, onSuccess: { observer.onNext(UploadingState.completed(data: $0))
+            let uploadReqeust = self.uploadRequest(destination, method: method, formData: formData, basicAuth: basicAuthInfo, headers: headers, onSuccess: {
+                observer.onNext(UploadingState.completed(data: $0))
                 observer.onCompleted()
             }, onProgressChanged: {
                 observer.onNext(.uploading(progress: $0))
