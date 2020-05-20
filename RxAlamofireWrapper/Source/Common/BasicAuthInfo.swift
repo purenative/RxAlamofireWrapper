@@ -8,7 +8,11 @@
 
 import Foundation
 
-public struct BasicAuthInfo {
+public struct BasicAuthInfo: CustomStringConvertible {
     let username: String
     let password: String
+    
+    public var description: String {
+        return "username: \(username), password: \(password)"
+    }
 }

@@ -14,6 +14,14 @@ public class AlamofireWrapper {
     
     public static let shared = AlamofireWrapper()
     
+    #if DEBUG
+    private var logLevel: AFWrapperLogLevel = .default
+    
+    public func set(logLevel: AFWrapperLogLevel) {
+        self.logLevel = logLevel
+    }
+    #endif
+    
     private var session: Session
     
     public func configure(session: Session) {
@@ -26,6 +34,21 @@ public class AlamofireWrapper {
     
     @discardableResult
     public func dataRequest(_ desination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onError: @escaping (Error) -> Void) -> DataRequest {
+        
+        #if DEBUG
+        print("Endpoint: \(try! desination.asURL().absoluteString)")
+        if logLevel != .default {
+            if let basicAuthInfo = basicAuthInfo {
+                print("BasicAuth: \(basicAuthInfo)")
+            }
+            if let json = json {
+                print("JSON body: \(json)")
+            }
+            if !queryParameters.isEmpty {
+                print("QUERY parameters: \(queryParameters)")
+            }
+        }
+        #endif
         
         let dataRequest = createDataRequest(desination,
                                             method: method,
@@ -105,12 +128,28 @@ fileprivate extension AlamofireWrapper {
         switch dataResponse.result {
         case let .success(data):
             let statusCode = dataResponse.response?.statusCode ?? 200
+            
+            #if DEBUG
+            print("Status code: \(statusCode)")
+            if logLevel == .requestWithResponse {
+                if let jsonResponse = data.prettyJSONString {
+                    print("JSON response:\n\(jsonResponse)")
+                }
+            }
+            #endif
+            
             guard 200..<300 ~= statusCode  else {
                 onError(AFWrapperError.api(statusCode: statusCode, data: data))
                 return
             }
+            
             onSuccess(data)
         case let .failure(error):
+            
+            #if DEBUG
+            print("Error: \(error)")
+            #endif
+            
             onError(error)
         }
     }

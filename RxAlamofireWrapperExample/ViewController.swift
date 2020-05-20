@@ -8,6 +8,7 @@
 
 import UIKit
 import RxSwift
+import Alamofire
 import RxAlamofireWrapper
 
 class ViewController: UIViewController {
@@ -20,17 +21,34 @@ class ViewController: UIViewController {
         
         // default format
         let dataRequest = AlamofireWrapper.shared.dataRequest("some endpoint", method: .get, onSuccess: { data in
-            
+
         }, onError: { error in
-            
+            if let afwError = error.asAFWrapperError() {
+
+                // error handling 1st type
+                switch afwError {
+                case let .af(afError): // error from alamofire
+                    print(afError.localizedDescription)
+                    // do something there...
+
+                case let .api(statusCode, data): // error from api response
+                    print("status code: \(statusCode)")
+                    // do something there...
+                }
+
+                // or
+                // error handling 2nd type
+                guard let statusCode = afwError.statusCode, let data = afwError.data else {
+                    return
+                }
+                print("status code: \(statusCode)")
+                // do something there...
+
+            } else {
+                // other errors
+                // do something there...
+            }
         })
-        
-        // reactive format
-        AlamofireWrapper.shared.dataRequest("some endpoint", method: .get).subscribe(onSuccess: { data in
-            
-        }, onError: { error in
-            
-        }).disposed(by: disposeBag)
     }
 
 

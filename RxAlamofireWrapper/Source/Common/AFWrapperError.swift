@@ -14,9 +14,13 @@ public enum AFWrapperError: Error, LocalizedError {
     case af(AFError)
     case api(statusCode: Int, data: Data)
     
-    var data: Data? {
+    public var data: Data? {
         guard case let .api(_, data) = self else { return nil }
         return data
+    }
+    public var statusCode: Int? {
+        guard case let .api(statusCode, _) = self else { return nil }
+        return statusCode
     }
     
     public var localizedDescription: String {
