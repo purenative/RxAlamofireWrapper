@@ -35,10 +35,7 @@ public class AlamofireWrapper {
                                             headers: headers)
         
         dataRequest.responseData(completionHandler: { dataResponse in
-            switch dataResponse.result {
-            case let .success(data): onSuccess(data)
-            case let .failure(error): onError(error)
-            }
+            self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
         })
         
         return dataRequest
@@ -58,10 +55,7 @@ public class AlamofireWrapper {
         })
         
         uploadRequest.responseData(completionHandler: { dataResponse in
-            switch dataResponse.result {
-            case let .success(data): onSuccess(data)
-            case let .failure(error): onError(error)
-            }
+            self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
         })
         
         return uploadRequest
@@ -105,6 +99,20 @@ fileprivate extension AlamofireWrapper {
             return session.upload(multipartFormData: formData, with: reqeust).authenticate(username: basicAuthInfo.username, password: basicAuthInfo.password)
         }
         return session.upload(multipartFormData: formData, with: reqeust)
+    }
+    
+    func processResponse(dataResponse: AFDataResponse<Data>, onSuccess: @escaping (Data) -> Void, onError: @escaping (Error) -> Void) {
+        switch dataResponse.result {
+        case let .success(data):
+            let statusCode = dataResponse.response?.statusCode ?? 200
+            guard 200..<300 ~= statusCode  else {
+                onError(AFWrapperError.api(statusCode: statusCode, data: data))
+                return
+            }
+            onSuccess(data)
+        case let .failure(error):
+            onError(error)
+        }
     }
     
 }
