@@ -57,7 +57,7 @@ public class AlamofireWrapper {
                                             basicAuth: basicAuthInfo,
                                             headers: headers)
         
-        dataRequest.responseData(completionHandler: { dataResponse in
+        dataRequest.validate().responseData(completionHandler: { dataResponse in
             self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
         })
         
@@ -73,7 +73,7 @@ public class AlamofireWrapper {
                                                 basicAuth: basicAuthInfo,
                                                 headers: headers)
         
-        uploadRequest.uploadProgress(closure: { progress in
+        uploadRequest.validate().uploadProgress(closure: { progress in
             onProgressChanged(progress.fractionCompleted)
         })
         
