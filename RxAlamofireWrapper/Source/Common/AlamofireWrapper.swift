@@ -33,10 +33,10 @@ public class AlamofireWrapper {
     }
     
     @discardableResult
-    public func dataRequest(_ desination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onError: @escaping (Error) -> Void) -> DataRequest {
+    public func dataRequest(_ destination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onError: @escaping (Error) -> Void) -> DataRequest {
         
         #if DEBUG
-        print("Endpoint: \(try! desination.asURL().absoluteString)")
+        print("Endpoint: \(try! destination.asURL().absoluteString)")
         if logLevel != .default {
             if let basicAuthInfo = basicAuthInfo {
                 print("BasicAuth: \(basicAuthInfo)")
@@ -50,7 +50,7 @@ public class AlamofireWrapper {
         }
         #endif
         
-        let dataRequest = createDataRequest(desination,
+        let dataRequest = createDataRequest(destination,
                                             method: method,
                                             json: json,
                                             queryParameters: queryParameters,
@@ -63,6 +63,40 @@ public class AlamofireWrapper {
         
         return dataRequest
     }
+    
+    @discardableResult
+    public func dataRequest(_ destination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping () -> Void, onError: @escaping (Error) -> Void) -> DataRequest {
+        
+        #if DEBUG
+        print("Endpoint: \(try! destination.asURL().absoluteString)")
+        if logLevel != .default {
+            if let basicAuthInfo = basicAuthInfo {
+                print("BasicAuth: \(basicAuthInfo)")
+            }
+            if let json = json {
+                print("JSON body: \(json)")
+            }
+            if !queryParameters.isEmpty {
+                print("QUERY parameters: \(queryParameters)")
+            }
+        }
+        #endif
+        
+        let dataRequest = createDataRequest(destination,
+                                            method: method,
+                                            json: json,
+                                            queryParameters: queryParameters,
+                                            basicAuth: basicAuthInfo,
+                                            headers: headers)
+        
+        dataRequest.validate().responseString(completionHandler: { stringResponse in
+            self.processResponse(stringResponse: stringResponse, onSuccess: onSuccess, onError: onError)
+        })
+        
+        return dataRequest
+        
+    }
+    
     
     @discardableResult
     public func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onProgressChanged: @escaping (Double) -> Void, onError: @escaping (Error) -> Void) -> UploadRequest {
@@ -87,6 +121,10 @@ public class AlamofireWrapper {
 }
 
 fileprivate extension AlamofireWrapper {
+    
+//    func createSerializer() -> ResponseSerializer<Data, Error> {
+//        return ResponseSerializer
+//    }
     
     func createDataRequest(_ destination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> DataRequest {
         let url = try! destination.asURL()
@@ -122,6 +160,31 @@ fileprivate extension AlamofireWrapper {
             return session.upload(multipartFormData: formData, with: reqeust).authenticate(username: basicAuthInfo.username, password: basicAuthInfo.password)
         }
         return session.upload(multipartFormData: formData, with: reqeust)
+    }
+    
+    func processResponse(stringResponse: AFDataResponse<String>, onSuccess: @escaping () -> Void, onError: @escaping (Error) -> Void) {
+        switch stringResponse.result {
+        case .success:
+            let statusCode = stringResponse.response?.statusCode ?? 200
+            
+            #if DEBUG
+            print("Status code: \(statusCode)")
+            #endif
+            
+            guard 200..<300 ~= statusCode  else {
+                onError(AFWrapperError.api(statusCode: statusCode, data: Data()))
+                return
+            }
+            
+            onSuccess()
+            case let .failure(error):
+            
+            #if DEBUG
+            print("Error: \(error)")
+            #endif
+            
+            onError(error)
+        }
     }
     
     func processResponse(dataResponse: AFDataResponse<Data>, onSuccess: @escaping (Data) -> Void, onError: @escaping (Error) -> Void) {
@@ -165,6 +228,22 @@ public extension AlamofireWrapper {
                         basicAuth: basicAuthInfo,
                         headers: headers,
                         onSuccess: { observer(.success($0)) },
+                        onError: { observer(.error($0)) })
+            
+            return Disposables.create {
+                dataReqeust.cancel()
+            }
+        })
+    }
+    
+    func dataRequest(_ desination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> Single<Void> {
+        return Single.create(subscribe: { observer in
+            let dataReqeust = self.dataRequest(desination, method:
+                method, json: json,
+                        queryParameters: queryParameters,
+                        basicAuth: basicAuthInfo,
+                        headers: headers,
+                        onSuccess: { observer(.success(())) },
                         onError: { observer(.error($0)) })
             
             return Disposables.create {

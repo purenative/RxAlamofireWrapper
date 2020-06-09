@@ -26,7 +26,14 @@ public class AuthorizationRequestInterceptor: Alamofire.RequestInterceptor {
             return
         }
         
-        urlRequest.headers.update(name: tokenProvider.accessTokenType.headerName, value: "\(tokenProvider.accessTokenType.prefix) \(accessToken)")
+        if tokenProvider.accessTokenType.forUseInQuery {
+            urlRequest = try! URLEncoding.queryString.encode(urlRequest, with: [
+                tokenProvider.accessTokenType.name: accessToken
+            ])
+        } else {
+            urlRequest.headers.update(name: tokenProvider.accessTokenType.name, value: "\(tokenProvider.accessTokenType.prefix) \(accessToken)")
+        }
+        
         completion(.success(urlRequest))
         
     }
