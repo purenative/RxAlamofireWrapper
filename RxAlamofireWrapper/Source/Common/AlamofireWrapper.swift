@@ -99,7 +99,7 @@ public class AlamofireWrapper {
     
     
     @discardableResult
-    public func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onProgressChanged: @escaping (Double) -> Void, onError: @escaping (Error) -> Void) -> UploadRequest {
+    public func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onStateChanged: @escaping (UploadingState) -> Void, onError: @escaping (Error) -> Void) -> UploadRequest {
         
         let uploadRequest = createUploadRequest(destination,
                                                 method: method,
@@ -107,8 +107,10 @@ public class AlamofireWrapper {
                                                 basicAuth: basicAuthInfo,
                                                 headers: headers)
         
+        let requestID = uploadRequest.id
+        
         return uploadRequest.uploadProgress(closure: { progress in
-            onProgressChanged(progress.fractionCompleted)
+            onStateChanged(.uploading(uploadRequestID: requestID, progress: progress.fractionCompleted))
         }).validate().responseData(completionHandler: { dataResponse in
             self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
         })
@@ -234,11 +236,15 @@ public extension AlamofireWrapper {
     
     func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> Observable<UploadingState> {
         return Observable.create({ observer in
+            
+            var requestID: UUID!
+            
             let uploadReqeust = self.uploadRequest(destination, method: method, formData: formData, basicAuth: basicAuthInfo, headers: headers, onSuccess: {
-                observer.onNext(UploadingState.completed(data: $0))
+                observer.onNext(.completed(uploadRequestID: requestID, data: $0))
                 observer.onCompleted()
-            }, onProgressChanged: {
-                observer.onNext(.uploading(progress: $0))
+            }, onStateChanged: {
+                requestID = $0.uploadRequestID
+                observer.onNext($0)
             }, onError: {
                 observer.onError($0)
             })

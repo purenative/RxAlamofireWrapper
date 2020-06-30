@@ -9,6 +9,14 @@
 import Foundation
 
 public enum UploadingState {
-    case uploading(progress: Double)
-    case completed(data: Data)
+    case uploading(uploadRequestID: UUID, progress: Double)
+    case completed(uploadRequestID: UUID, data: Data)
+    
+    public var uploadRequestID: UUID {
+        switch self {
+        case let .uploading(uploadRequestID, _),
+             let .completed(uploadRequestID, _):
+            return uploadRequestID
+        }
+    }
 }
