@@ -107,15 +107,11 @@ public class AlamofireWrapper {
                                                 basicAuth: basicAuthInfo,
                                                 headers: headers)
         
-        uploadRequest.validate().uploadProgress(closure: { progress in
+        return uploadRequest.uploadProgress(closure: { progress in
             onProgressChanged(progress.fractionCompleted)
-        })
-        
-        uploadRequest.responseData(completionHandler: { dataResponse in
+        }).validate().responseData(completionHandler: { dataResponse in
             self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
         })
-        
-        return uploadRequest
     }
     
 }
@@ -145,6 +141,7 @@ fileprivate extension AlamofireWrapper {
         if let basicAuthInfo = basicAuthInfo {
             return session.request(reqeust).authenticate(username: basicAuthInfo.username, password: basicAuthInfo.password)
         }
+        
         return session.request(reqeust)
     }
     
