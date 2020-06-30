@@ -22,6 +22,8 @@ public class AlamofireWrapper {
     }
     #endif
     
+    private var uploadRequests = [UUID: UploadRequest]()
+    
     private var session: Session
     
     public func configure(session: Session) {
@@ -108,21 +110,34 @@ public class AlamofireWrapper {
                                                 headers: headers)
         
         let requestID = uploadRequest.id
+        registerUploadRequest(uploadRequest)
         
         return uploadRequest.uploadProgress(closure: { progress in
             onStateChanged(.uploading(uploadRequestID: requestID, progress: progress.fractionCompleted))
         }).validate().responseData(completionHandler: { dataResponse in
+            self.unregisterUploadRequest(id: requestID)
             self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
         })
+    }
+    
+    public func cancelUploadRequest(requestID: UUID) {
+        unregisterUploadRequest(id: requestID)
     }
     
 }
 
 fileprivate extension AlamofireWrapper {
     
-//    func createSerializer() -> ResponseSerializer<Data, Error> {
-//        return ResponseSerializer
-//    }
+    private func registerUploadRequest(_ uploadRequest: UploadRequest) {
+        uploadRequests[uploadRequest.id] = uploadRequest
+    }
+    private func unregisterUploadRequest(id: UUID) {
+        if let uploadRequest = uploadRequests.removeValue(forKey: id) {
+            if !uploadRequest.isFinished && !uploadRequest.isCancelled {
+                uploadRequest.cancel()
+            }
+        }
+    }
     
     func createDataRequest(_ destination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> DataRequest {
         let url = try! destination.asURL()
