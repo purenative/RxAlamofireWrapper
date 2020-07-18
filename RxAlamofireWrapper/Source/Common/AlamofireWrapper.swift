@@ -59,7 +59,7 @@ public class AlamofireWrapper {
                                             basicAuth: basicAuthInfo,
                                             headers: headers)
         
-        dataRequest.validate().responseData(completionHandler: { dataResponse in
+        dataRequest.validate(validateRequest).responseData(completionHandler: { dataResponse in
             self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
         })
         
@@ -91,7 +91,7 @@ public class AlamofireWrapper {
                                             basicAuth: basicAuthInfo,
                                             headers: headers)
         
-        dataRequest.validate().responseData(completionHandler: { dataResponse in
+        dataRequest.validate(validateRequest).responseData(completionHandler: { dataResponse in
             self.processResponse(dataResponse: dataResponse, onSuccess: { _ in onSuccess() }, onError: onError)
         })
         
@@ -114,7 +114,7 @@ public class AlamofireWrapper {
         
         return uploadRequest.uploadProgress(closure: { progress in
             onStateChanged(.uploading(uploadRequestID: requestID, progress: progress.fractionCompleted))
-        }).validate().responseData(completionHandler: { dataResponse in
+        }).validate(validateRequest).responseData(completionHandler: { dataResponse in
             self.unregisterUploadRequest(id: requestID)
             self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
         })
@@ -217,6 +217,16 @@ fileprivate extension AlamofireWrapper {
 }
 
 public extension AlamofireWrapper {
+    func validateRequest(_ request: URLRequest?, response: URLResponse, data: Data?) -> DataRequest.ValidationResult {
+        let httpResponse = response as! HTTPURLResponse
+        
+        if 200..<300 ~= httpResponse.statusCode {
+            return .success(())
+        }
+        
+        return .failure(AFWrapperError.api(statusCode: httpResponse.statusCode, data: data ?? Data()))
+    }
+    
     func dataRequest(_ desination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> Single<Data> {
         return Single.create(subscribe: { observer in
             let dataReqeust = self.dataRequest(desination, method:
