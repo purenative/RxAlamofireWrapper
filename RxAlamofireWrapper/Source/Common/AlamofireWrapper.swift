@@ -103,6 +103,16 @@ public class AlamofireWrapper {
     @discardableResult
     public func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onStateChanged: @escaping (UploadingState) -> Void, onError: @escaping (Error) -> Void) -> UploadRequest {
         
+        #if DEBUG
+        print("Endpoint: \(try! destination.asURL().absoluteString)")
+        if logLevel != .default {
+            if let basicAuthInfo = basicAuthInfo {
+                print("BasicAuth: \(basicAuthInfo)")
+            }
+            print("Multipart Form: \(formData)")
+        }
+        #endif
+        
         let uploadRequest = createUploadRequest(destination,
                                                 method: method,
                                                 formData: formData,
@@ -117,6 +127,70 @@ public class AlamofireWrapper {
         }).validate(validateRequest).responseData(completionHandler: { dataResponse in
             self.unregisterUploadRequest(id: requestID)
             self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
+        })
+    }
+    
+    @discardableResult
+    public func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onError: @escaping (Error) -> Void) -> UploadRequest {
+        
+        #if DEBUG
+        print("Endpoint: \(try! destination.asURL().absoluteString)")
+        if logLevel != .default {
+            if let basicAuthInfo = basicAuthInfo {
+                print("BasicAuth: \(basicAuthInfo)")
+            }
+            print("Multipart Form: \(formData)")
+            if !queryParameters.isEmpty {
+                print("QUERY parameters: \(queryParameters)")
+            }
+        }
+        #endif
+        
+        let uploadRequest = createUploadRequest(destination,
+                                                method: method,
+                                                formData: formData,
+                                                queryParameters: queryParameters,
+                                                basicAuth: basicAuthInfo,
+                                                headers: headers)
+        
+        let requestID = uploadRequest.id
+        registerUploadRequest(uploadRequest)
+        
+        return uploadRequest.validate(validateRequest).responseData(completionHandler: { dataResponse in
+            self.unregisterUploadRequest(id: requestID)
+            self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
+        })
+    }
+    
+    @discardableResult
+    public func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping () -> Void, onError: @escaping (Error) -> Void) -> UploadRequest {
+        
+        #if DEBUG
+        print("Endpoint: \(try! destination.asURL().absoluteString)")
+        if logLevel != .default {
+            if let basicAuthInfo = basicAuthInfo {
+                print("BasicAuth: \(basicAuthInfo)")
+            }
+            print("Multipart Form: \(formData)")
+            if !queryParameters.isEmpty {
+                print("QUERY parameters: \(queryParameters)")
+            }
+        }
+        #endif
+        
+        let uploadRequest = createUploadRequest(destination,
+                                                method: method,
+                                                formData: formData,
+                                                queryParameters: queryParameters,
+                                                basicAuth: basicAuthInfo,
+                                                headers: headers)
+        
+        let requestID = uploadRequest.id
+        registerUploadRequest(uploadRequest)
+        
+        return uploadRequest.validate(validateRequest).responseData(completionHandler: { dataResponse in
+            self.unregisterUploadRequest(id: requestID)
+            self.processResponse(dataResponse: dataResponse, onSuccess: { _ in onSuccess() }, onError: onError)
         })
     }
     
@@ -141,25 +215,43 @@ fileprivate extension AlamofireWrapper {
     
     func createDataRequest(_ destination: URLConvertible, method: HTTPMethod, json: Any? = nil, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> DataRequest {
         let url = try! destination.asURL()
-        var reqeust = try! URLRequest(url: url, method: method)
+        var request = try! URLRequest(url: url, method: method)
         
         if let json = json {
-            reqeust = try! JSONEncoding.default.encode(reqeust, withJSONObject: json)
+            request = try! JSONEncoding.default.encode(request, withJSONObject: json)
         }
         
         if !queryParameters.isEmpty {
-            reqeust = try! URLEncoding.queryString.encode(reqeust, with: queryParameters)
+            request = try! URLEncoding.queryString.encode(request, with: queryParameters)
         }
         
         for (key, value) in headers {
-            reqeust.addValue(value, forHTTPHeaderField: key)
+            request.addValue(value, forHTTPHeaderField: key)
         }
         
         if let basicAuthInfo = basicAuthInfo {
-            return session.request(reqeust).authenticate(username: basicAuthInfo.username, password: basicAuthInfo.password)
+            return session.request(request).authenticate(username: basicAuthInfo.username, password: basicAuthInfo.password)
         }
         
-        return session.request(reqeust)
+        return session.request(request)
+    }
+    
+    func createUploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> UploadRequest {
+        let url = try! destination.asURL()
+        var request = try! URLRequest(url: url, method: method)
+        
+        if !queryParameters.isEmpty {
+            request = try! URLEncoding.queryString.encode(request, with: queryParameters)
+        }
+        
+        for (key, value) in headers {
+            request.addValue(value, forHTTPHeaderField: key)
+        }
+        
+        if let basicAuthInfo = basicAuthInfo {
+            return session.upload(multipartFormData: formData, with: request).authenticate(username: basicAuthInfo.username, password: basicAuthInfo.password)
+        }
+        return session.upload(multipartFormData: formData, with: request)
     }
     
     func createUploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> UploadRequest {
@@ -272,6 +364,36 @@ public extension AlamofireWrapper {
                 observer.onNext($0)
             }, onError: {
                 observer.onError($0)
+            })
+            
+            return Disposables.create {
+                uploadReqeust.cancel()
+            }
+        })
+    }
+    
+    func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> Single<Data> {
+        return Single.create(subscribe: { observer in
+            
+            let uploadReqeust = self.uploadRequest(destination, method: method, formData: formData, queryParameters: queryParameters, basicAuth: basicAuthInfo, headers: headers, onSuccess: { data in
+                observer(.success(data))
+            }, onError: { error in
+                observer(.error(error))
+            })
+            
+            return Disposables.create {
+                uploadReqeust.cancel()
+            }
+        })
+    }
+    
+    func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, queryParameters: [String: Any] = [:], basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> Single<Void> {
+        return Single.create(subscribe: { observer in
+            
+            let uploadReqeust = self.uploadRequest(destination, method: method, formData: formData, queryParameters: queryParameters, basicAuth: basicAuthInfo, headers: headers, onSuccess: {
+                observer(.success(())) 
+            }, onError: { error in
+                observer(.error(error))
             })
             
             return Disposables.create {
