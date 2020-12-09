@@ -269,8 +269,19 @@ fileprivate extension AlamofireWrapper {
     }
     
     func processError(_ error: Error, onSuccess: (Data) -> Void, onError: (Error) -> Void) {
-        if let afError = error.asAFError, case let .responseSerializationFailed(reason) = afError, case .inputDataNilOrZeroLength = reason {
-            onSuccess(Data())
+        if let afError = error.asAFError {
+            switch afError {
+            case let .responseSerializationFailed(reason):
+                if case .inputDataNilOrZeroLength = reason {
+                    onSuccess(Data())
+                } else {
+                    onError(error)
+                }
+            case let .requestRetryFailed(_, originalError):
+                self.processError(originalError, onSuccess: onSuccess, onError: onError)
+            default:
+                onError(error)
+            }
         } else {
             onError(error)
         }
