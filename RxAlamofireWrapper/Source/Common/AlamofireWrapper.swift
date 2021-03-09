@@ -194,7 +194,10 @@ public class AlamofireWrapper {
         })
     }
     
-    public func cancelUploadRequest(requestID: UUID) {
+    public func cancelUploadRequest(requestID: UUID?) {
+        guard let requestID = requestID else {
+            return
+        }
         unregisterUploadRequest(id: requestID)
     }
     
