@@ -101,7 +101,10 @@ public class AlamofireWrapper {
     
     
     @discardableResult
-    public func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:], onSuccess: @escaping (Data) -> Void, onStateChanged: @escaping (UploadingState) -> Void, onError: @escaping (Error) -> Void) -> UploadRequest {
+    public func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:],
+                              onSuccess: @escaping (UUID, Data) -> Void,
+                              onStateChanged: @escaping (UploadingState) -> Void,
+                              onError: @escaping (Error) -> Void) -> UploadRequest {
         
         #if DEBUG
         print("Endpoint: \(try! destination.asURL().absoluteString)")
@@ -122,11 +125,13 @@ public class AlamofireWrapper {
         let requestID = uploadRequest.id
         registerUploadRequest(uploadRequest)
         
-        return uploadRequest.uploadProgress(closure: { progress in
+        return uploadRequest.uploadProgress(queue: DispatchQueue.main, closure: { [requestID] progress in
             onStateChanged(.uploading(uploadRequestID: requestID, progress: progress.fractionCompleted))
-        }).validate(validateRequest).responseData(completionHandler: { dataResponse in
+        }).validate(validateRequest).responseData(completionHandler: { [requestID] dataResponse in
             self.unregisterUploadRequest(id: requestID)
-            self.processResponse(dataResponse: dataResponse, onSuccess: onSuccess, onError: onError)
+            self.processResponse(dataResponse: dataResponse, onSuccess: { data in
+                onSuccess(requestID, data)
+            }, onError: onError)
         })
     }
     
