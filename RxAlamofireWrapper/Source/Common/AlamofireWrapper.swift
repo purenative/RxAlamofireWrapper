@@ -373,13 +373,10 @@ public extension AlamofireWrapper {
     func uploadRequest(_ destination: URLConvertible, method: HTTPMethod, formData: MultipartFormData, basicAuth basicAuthInfo: BasicAuthInfo? = nil, headers: [String: String] = [:]) -> Observable<UploadingState> {
         return Observable.create({ observer in
             
-            var requestID: UUID!
-            
-            let uploadReqeust = self.uploadRequest(destination, method: method, formData: formData, basicAuth: basicAuthInfo, headers: headers, onSuccess: {
-                observer.onNext(.completed(uploadRequestID: requestID, data: $0))
+            let uploadReqeust = self.uploadRequest(destination, method: method, formData: formData, basicAuth: basicAuthInfo, headers: headers, onSuccess: { requestID, data in
+                observer.onNext(.completed(uploadRequestID: requestID, data: data))
                 observer.onCompleted()
             }, onStateChanged: {
-                requestID = $0.uploadRequestID
                 observer.onNext($0)
             }, onError: {
                 observer.onError($0)
