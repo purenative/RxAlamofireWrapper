@@ -24,15 +24,19 @@ public class AccessTokenProvider: AccessTokenProviderProtocol {
     }
     
     public func requestNewToken(onCompleted: @escaping (Bool) -> Void) {
+        
         guard let refreshToken = AccessTokenStorage.refreshToken else {
             onCompleted(false)
             return
         }
-        refreshing = true
+        
         guard let tokenRefresher = self.tokenRefresher else {
-            onCompleted(true)
+            onCompleted(false)
             return
         }
+        
+        refreshing = true
+        
         tokenRefresher.refreshAccessToken(refreshToken, onCompleted: { tokenPair in
             if let tokenPair = tokenPair {
                 AccessTokenStorage.accessToken = tokenPair.accessToken
